@@ -1,0 +1,362 @@
+<!DOCTYPE html><html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Turn‑Based Beta • PNG Sprites + HP Gauge + Keyboard (Fix)</title>
+  <style>
+    :root{
+      --bg:#0f172a;--panel:#0b1220;--muted:#94a3b8;--text:#e5e7eb;--accent:#38bdf8;--danger:#f87171;--ok:#4ade80;--warn:#fbbf24
+    }
+    *{box-sizing:border-box}
+    body{margin:0;padding:24px;background:radial-gradient(900px 600px at 20% 0%,#0b1220,var(--bg));color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Sarabun",sans-serif}
+    .app{max-width:980px;margin:0 auto;display:grid;gap:16px}
+    .topbar{display:flex;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:22px}
+    .pill{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--muted);font-size:13px}.arena{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;min-height:300px;overflow:hidden}
+.ground{position:absolute;left:0;right:0;bottom:22px;height:6px;background:linear-gradient(90deg,rgba(56,189,248,.25),rgba(250,204,21,.25));filter:blur(1px)}
+
+.slot{position:absolute;bottom:28px;width:40%;display:flex;flex-direction:column;gap:8px}
+.slot.left{left:16px;align-items:flex-start}
+.slot.right{right:16px;align-items:flex-end}
+
+.nameplate{display:flex;gap:8px;align-items:center}
+
+/* HP gauge with chip (damage delay) */
+.hpbar{position:relative;width:100%;height:14px;background:#1f2937;border-radius:10px;border:1px solid rgba(255,255,255,.08);overflow:hidden}
+.hpbar .chip{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(90deg,#94a3b8,#ef4444);opacity:.45;transition:width .7s ease}
+.hpbar .fill{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(90deg,var(--ok),var(--warn),var(--danger));transition:width .35s ease}
+.hpnum{font-size:13px;color:var(--muted)}
+
+.spriteWrap{position:relative;display:inline-block;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+.sprite{width:min(260px,34vw);height:auto;max-height:220px;object-fit:contain;image-rendering:auto}
+.right .sprite{transform:scaleX(-1)}
+
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px}
+
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+button{padding:10px 12px;border-radius:12px;background:#0f172a;color:var(--text);border:1px solid rgba(255,255,255,.12);cursor:pointer;transition:border-color .2s ease, box-shadow .2s ease}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.focused{outline:none;box-shadow:0 0 0 3px rgba(56,189,248,.45)}
+
+.log{max-height:220px;overflow:auto;font-size:14px}
+.log p{margin:6px 0}
+.footer{display:flex;justify-content:flex-end}
+
+/* Effects */
+@keyframes hit{10%{transform:translateX(-4px)} 20%{transform:translateX(4px)} 30%{transform:translateX(-3px)} 40%{transform:translateX(3px)} 50%{transform:translateX(-2px)} 60%{transform:translateX(2px)} 100%{transform:none}}
+.shake{animation:hit .35s ease}
+.guard{box-shadow:0 0 0 0 rgba(59,130,246,.6);animation:pulse .6s ease}
+@keyframes pulse{to{box-shadow:0 0 16px 6px rgba(59,130,246,.35)}}
+
+/* Floating damage number */
+.floatNum{position:absolute;left:50%;transform:translateX(-50%);top:-8px;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.dmg{color:#fecaca}
+.heal{color:#bbf7d0}
+@keyframes floatUp{0%{opacity:0;transform:translate(-50%,8px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-24px)}}
+.floatAnim{animation:floatUp .7s ease forwards}
+
+/* Help overlay */
+.help{position:fixed;inset:auto 16px 16px auto;max-width:320px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(15,23,42,.85);backdrop-filter:blur(6px);font-size:13px;color:#d1d5db}
+.help kbd{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:1px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06)}
+.help.hidden{display:none}
+
+@media (max-width:760px){
+  .slot{width:48%}
+  .btns{grid-template-columns:1fr}
+}
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <h1>Turn‑Based Beta (PNG)</h1>
+      <span id="turnTag" class="pill">กำลังโหลด…</span>
+    </div><!-- STORY LAYER -->
+<section id="storyLayer" class="panel" style="position:relative; overflow:hidden;">
+  <div id="storyBox" style="display:none; position:relative; border-radius:16px; padding:16px; background:rgba(15,23,42,.85); border:1px solid rgba(255,255,255,.12);">
+    <div style="display:flex; gap:12px; align-items:flex-start;">
+      <img id="storyPortrait" src="Player.png" alt="portrait" style="width:72px; height:72px; object-fit:contain; image-rendering:auto; border-radius:12px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1)" />
+      <div style="flex:1; min-height:72px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <strong id="storySpeaker">Player</strong>
+          <div style="display:flex; gap:8px; opacity:.9;">
+            <button id="storySkip" class="pill" title="ข้ามเนื้อเรื่อง">ข้าม</button>
+          </div>
+        </div>
+        <div id="storyText" style="min-height:48px; line-height:1.6"></div>
+        <div id="storyChoices" style="display:none; margin-top:10px; gap:8px; flex-wrap:wrap"></div>
+        <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+          <button id="storyNext" class="pill">ถัดไป (Space/N)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Battle Arena with PNG sprites -->
+<section class="arena" aria-label="สนามต่อสู้">
+  <div class="ground"></div>
+
+  <!-- Player (LEFT) -->
+  <div class="slot left" id="playerSlot">
+    <div class="nameplate"><strong id="pName">Player</strong><span class="hpnum" id="pHPText">100 / 100 HP</span></div>
+    <div class="hpbar" aria-label="Player HP">
+      <div id="pHPChip" class="chip" style="width:100%"></div>
+      <div id="pHPBar" class="fill" style="width:100%"></div>
+    </div>
+    <div class="spriteWrap" id="pSpriteWrap">
+      <img id="playerImg" class="sprite" src="Player.png" alt="Player" />
+    </div>
+  </div>
+
+  <!-- Monster (RIGHT) -->
+  <div class="slot right" id="enemySlot">
+    <div class="nameplate" style="justify-content:flex-end"><span class="hpnum" id="eHPText">100 / 100 HP</span><strong id="eName">Monster</strong></div>
+    <div class="hpbar" aria-label="Enemy HP">
+      <div id="eHPChip" class="chip" style="width:100%"></div>
+      <div id="eHPBar" class="fill" style="width:100%"></div>
+    </div>
+    <div class="spriteWrap" id="eSpriteWrap">
+      <img id="enemyImg" class="sprite" src="Monster.png" alt="Monster" />
+    </div>
+  </div>
+</section>
+
+<!-- Controls & Log -->
+<section class="panel">
+  <div class="btns">
+    <button id="btnAttack">โจมตี <span style="opacity:.6">(A / ←→ + Enter)</span></button>
+    <button id="btnDefend">ป้องกัน <span style="opacity:.6">(D)</span></button>
+    <button id="btnSkill">สกิล: ไฟร์บอล <span style="opacity:.6">(S)</span></button>
+  </div>
+  <div class="log" id="log" role="log" aria-live="polite"></div>
+  <div class="footer">
+    <button id="btnNew">เริ่มเกมใหม่ (R)</button>
+    <button id="btnBGM">🔇 ปิดเพลง</button>
+  </div>
+</section>
+
+  </div>  <!-- BGM (background music) --><audio id="bgm" src="bgm.mp3" loop preload="auto" playsinline></audio></audio>
+
+  <script>
+    // --- Utilities ---
+    const $ = (s)=>document.querySelector(s);
+    const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    const logEl = $('#log');
+    function log(msg){ const p=document.createElement('p'); p.innerHTML=msg; logEl.appendChild(p); logEl.scrollTop=logEl.scrollHeight; }
+
+    // --- Story System ---
+    const storyUI = {
+      layer: $('#storyLayer'), box: $('#storyBox'), text: $('#storyText'), next: $('#storyNext'), skip: $('#storySkip'), speaker: $('#storySpeaker'), portrait: $('#storyPortrait'), choices: $('#storyChoices')
+    };
+
+    const story = {
+      mode: 'story', // 'story' | 'battle'
+      i: 0,
+      // โครงเรื่องตัวอย่าง + ฮุคเข้าบอสเทิร์นเบส
+      nodes: [
+        { speaker:'Player', portrait:'Player.png', text:'ที่นี่ที่ไหนกันนะ… ฉันต้องหาทางออกจากดันเจี้ยนนี้ให้ได้' },
+        { speaker:'Monster', portrait:'Monster.png', text:'กร่อร์… ผู้บุกรุก… จะไม่ผ่านที่นี่!' },
+        { speaker:'Player', portrait:'Player.png', text:'งั้นก็คงต้องสู้สินะ…' },
+        { cmd:'battle' },
+        // หลังชนะ
+        { tag:'postwin', speaker:'Player', portrait:'Player.png', text:'จัดการได้แล้ว! ข้างหน้าคงมีทางออก—ไปกันต่อ!' },
+      ],
+      typing:null,
+      speed: 18,
+    };
+
+    function showStory(){ storyUI.box.style.display='block'; story.mode='story'; updateUI(); }
+    function hideStory(){ storyUI.box.style.display='none'; }
+
+    function typeText(el, text, cb){
+      clearInterval(story.typing); el.textContent=''; let idx=0; story.typing = setInterval(()=>{
+        el.textContent = text.slice(0, ++idx);
+        if(idx>=text.length){ clearInterval(story.typing); if(cb) cb(); }
+      }, Math.max(8, 1000/story.speed));
+    }
+
+    function playNode(n){
+      if(!n) return;
+      if(n.cmd==='battle') { hideStory(); startBattle(); return; }
+      storyUI.speaker.textContent = n.speaker||'';
+      if(n.portrait) storyUI.portrait.src = n.portrait;
+      storyUI.choices.style.display='none'; storyUI.choices.innerHTML='';
+      storyUI.next.style.display='';
+      typeText(storyUI.text, n.text||'', null);
+    }
+
+    function nextNode(){
+      story.i++;
+      playNode(story.nodes[story.i]);
+    }
+
+    storyUI.next.addEventListener('click', ()=>{
+      // ถ้ากำลังพิมพ์อยู่ ให้พิมพ์จบทันที
+      if(story.typing){ clearInterval(story.typing); story.typing=null; storyUI.text.textContent = (story.nodes[story.i]?.text)||''; return; }
+      nextNode();
+    });
+    storyUI.skip.addEventListener('click', ()=>{ // ข้ามไปสู้เลย
+      const idx = story.nodes.findIndex(n=>n.cmd==='battle');
+      story.i = (idx>=0? idx : story.nodes.length-1); playNode(story.nodes[story.i]);
+    });
+
+    // --- Game State ---
+    const game={
+      state:'story', turn:1,
+      player:{name:'Player', maxHP:100, hp:100, atk:[8,14], defend:0, cd:0},
+      enemy:{name:'Monster', maxHP:100, hp:100, atk:[6,12], defend:0},
+      focus:0
+    };
+
+    // --- UI refs ---
+    const ui={
+      tag:$('#turnTag'), help:$('#help'),
+      pName:$('#pName'), eName:$('#eName'),
+      pHPText:$('#pHPText'), eHPText:$('#eHPText'),
+      pBar:$('#pHPBar'), eBar:$('#eHPBar'),
+      pChip:$('#pHPChip'), eChip:$('#eHPChip'),
+      pWrap:$('#pSpriteWrap'), eWrap:$('#eSpriteWrap'),
+      btnA:$('#btnAttack'), btnD:$('#btnDefend'), btnS:$('#btnSkill'), btnN:$('#btnNew'),
+      btnBGM:$('#btnBGM')
+    };
+    const btnList=[ui.btnA, ui.btnD, ui.btnS];
+
+    function setHP(elFill, elChip, ratio){
+      const r = clamp(isFinite(ratio)?ratio:1, 0, 1);
+      const pct = `${r*100}%`;
+      elFill.style.width = pct;
+      requestAnimationFrame(()=>{ setTimeout(()=>{ elChip.style.width=pct; }, 250); });
+    }
+
+    function updateUI(){
+      ui.pName.textContent=game.player.name; ui.eName.textContent=game.enemy.name;
+      ui.pHPText.textContent=`${game.player.hp} / ${game.player.maxHP} HP`;
+      ui.eHPText.textContent=`${game.enemy.hp} / ${game.enemy.maxHP} HP`;
+      setHP(ui.pBar, ui.pChip, game.player.hp/game.player.maxHP);
+      setHP(ui.eBar, ui.eChip, game.enemy.hp/game.enemy.maxHP);
+
+      const playerTurn = game.state==='player-turn';
+      ui.btnA.disabled=ui.btnD.disabled=ui.btnS.disabled=!playerTurn;
+      if(playerTurn && game.player.cd>0) ui.btnS.disabled = true;
+
+      ui.tag.textContent = game.state==='story' ? 'โหมดเนื้อเรื่อง' :
+                           playerTurn ? `เทิร์นที่ ${game.turn} • ตาของผู้เล่น` :
+                           game.state==='enemy-turn' ? `เทิร์นที่ ${game.turn} • ตาของศัตรู` :
+                           game.state==='win' ? '🎉 ชนะแล้ว!' :
+                           game.state==='lose'? '💀 แพ้แล้ว!' : 'พร้อมเริ่ม';
+
+      btnList.forEach((b,i)=>{ b.classList.toggle('focused', playerTurn && game.focus===i); });
+    }
+
+    function floatNumber(container, value, isHeal=false){
+      const n = document.createElement('div');
+      n.className = `floatNum ${isHeal?'heal':'dmg'} floatAnim`;
+      n.textContent = (isHeal?'+':'-') + value;
+      container.appendChild(n);
+      setTimeout(()=>{ if(n && n.parentNode) n.parentNode.removeChild(n); }, 800);
+    }
+
+    function applyDamage(target, dmg, wrap){
+      let out = dmg|0;
+      if(target.defend>0){ const reduced=Math.ceil(out*(1-target.defend)); log(`${target.name} ลดดาเมจเหลือ <b>${reduced}</b>`); out=reduced; target.defend=0; wrap.classList.add('guard'); setTimeout(()=>wrap.classList.remove('guard'),300); }
+      target.hp=clamp(target.hp-out,0,target.maxHP);
+      wrap.classList.add('shake'); setTimeout(()=>wrap.classList.remove('shake'),350);
+      floatNumber(wrap, out, false);
+      return out;
+    }
+
+    function checkEnd(){
+      if(game.enemy.hp<=0 && game.player.hp<=0){ game.state='lose'; log('<b>ทั้งคู่ล้มพร้อมกัน… เกมโอเวอร์</b>'); updateUI(); return true; }
+      if(game.enemy.hp<=0){ game.state='win'; log(`<b>${game.enemy.name} พ่ายแพ้! คุณชนะ!</b>`); updateUI(); setTimeout(()=>{ openPostWinStory(); }, 600); return true; }
+      if(game.player.hp<=0){ game.state='lose'; log(`<b>${game.player.name} ล้มลง… แพ้!</b>`); updateUI(); return true; }
+      return false;
+    }
+
+    function endPlayerTurn(){ if(game.player.cd>0) game.player.cd-=1; game.state='enemy-turn'; updateUI(); setTimeout(enemyAI,650); }
+    function nextRound(){ game.turn+=1; game.state='player-turn'; updateUI(); }
+
+    // Buttons
+    ui.btnA.addEventListener('click',()=>{ if(game.state!=='player-turn')return; const dmg=rand(...game.player.atk); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`${game.player.name} โจมตี สร้างความเสียหาย <b>${real}</b>`); updateUI(); if(!checkEnd()) endPlayerTurn(); });
+    ui.btnD.addEventListener('click',()=>{ if(game.state!=='player-turn')return; game.player.defend=0.5; log(`${game.player.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.pWrap.classList.add('guard'); setTimeout(()=>ui.pWrap.classList.remove('guard'),300); updateUI(); endPlayerTurn(); });
+    ui.btnS.addEventListener('click',()=>{ if(game.state!=='player-turn'||game.player.cd>0)return; const dmg=rand(16,24); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`🔥 ${game.player.name} ใช้ <b>ไฟร์บอล</b> สร้างความเสียหาย <b>${real}</b>`); game.player.cd=2; updateUI(); if(!checkEnd()) endPlayerTurn(); });
+    ui.btnN.addEventListener('click',()=>reset(true));
+
+    function enemyAI(){ if(game.state!=='enemy-turn')return; const r=Math.random(); if(r<0.7){ const dmg=rand(...game.enemy.atk); const real=applyDamage(game.player,dmg,ui.pWrap); log(`${game.enemy.name} โจมตีใส่คุณ เสียหาย <b>${real}</b>`); } else { game.enemy.defend=0.5; log(`${game.enemy.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.eWrap.classList.add('guard'); setTimeout(()=>ui.eWrap.classList.remove('guard'),300); }
+      updateUI(); if(!checkEnd()) nextRound(); }
+
+    function reset(playBGM=false){
+      game.state = (story.mode==='story'? 'story':'player-turn');
+      game.turn=1; game.player.hp=game.player.maxHP; game.enemy.hp=game.enemy.maxHP; game.player.defend=0; game.enemy.defend=0; game.player.cd=0;
+      logEl.innerHTML='';
+      if(game.state==='player-turn') log(`<span style=\"font-size:12px;color:#bae6fd\">เริ่มเกมใหม่</span> ${game.player.name} ปะทะ ${game.enemy.name}`);
+      updateUI();
+      const bgm = document.getElementById('bgm');
+      if(playBGM && bgm.paused){ bgm.volume=.5; bgm.play().catch(()=>{}); }
+    }
+
+    function startBattle(){ game.state='player-turn'; updateUI(); log(`<span style=\"font-size:12px;color:#bae6fd\">เริ่มการต่อสู้</span> ${game.player.name} ปะทะ ${game.enemy.name}`); }
+
+    function openPostWinStory(){ story.mode='story'; story.i = story.nodes.findIndex(n=>n.tag==='postwin'); showStory(); playNode(story.nodes[story.i]); }
+
+    // Keyboard controls
+    function isKey(e, keys){ const k=e.key; return keys.includes(k) || keys.includes(k.toLowerCase()) || keys.includes(k.toUpperCase()); }
+    window.addEventListener('keydown',(e)=>{
+      // Story controls
+      if(game.state==='story'){
+        if(isKey(e,['n','N','Enter',' ','Space'])){ storyUI.next.click(); e.preventDefault(); return; }
+        if(isKey(e,['Escape'])){ storyUI.skip.click(); e.preventDefault(); return; }
+        return;
+      }
+
+      if(isKey(e,['r','R'])){ reset(); e.preventDefault(); return; }
+      const actionable = game.state==='player-turn';
+      if(actionable && isKey(e,['a','A'])){ ui.btnA.click(); e.preventDefault(); return; }
+      if(actionable && isKey(e,['d','D'])){ ui.btnD.click(); e.preventDefault(); return; }
+      if(actionable && isKey(e,['s','S'])){ ui.btnS.click(); e.preventDefault(); return; }
+      if(actionable && (isKey(e,['ArrowLeft','ArrowUp']))){ game.focus = (game.focus+2)%3; updateUI(); e.preventDefault(); return; }
+      if(actionable && (isKey(e,['ArrowRight','ArrowDown']))){ game.focus = (game.focus+1)%3; updateUI(); e.preventDefault(); return; }
+      if(actionable && (isKey(e,['Enter',' ','Space']))){ const btn=btnList[game.focus]; if(btn && !btn.disabled) btn.click(); e.preventDefault(); return; }
+    });
+
+    // BGM toggle
+    ui.btnBGM.addEventListener('click',()=>{ const bgm=document.getElementById('bgm'); if(bgm.paused){ bgm.play().then(()=>setAudioStatus('กำลังเล่น', true)).catch(()=>setAudioStatus('ถูกบล็อก', false)); ui.btnBGM.textContent='🔇 ปิดเพลง'; } else { bgm.pause(); setAudioStatus('หยุดชั่วคราว', false); ui.btnBGM.textContent='🔊 เปิดเพลง'; }});
+
+    // --- Robust BGM unlock (improved) ---
+    const bgmEl = document.getElementById('bgm');
+    const audioStatus = document.createElement('div');
+    audioStatus.id='audioStatus';
+    audioStatus.style.cssText='position:fixed;left:16px;bottom:16px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#fecaca;padding:6px 10px;border-radius:10px;font-size:12px;display:none;z-index:50;backdrop-filter:blur(4px)';
+    audioStatus.textContent='BGM: ไม่ได้เล่น';
+    document.body.appendChild(audioStatus);
+
+    function setAudioStatus(txt, ok=false){
+      audioStatus.style.display='block';
+      audioStatus.style.background= ok? 'rgba(16,185,129,.12)':'rgba(239,68,68,.12)';
+      audioStatus.style.borderColor= ok? 'rgba(16,185,129,.4)':'rgba(239,68,68,.4)';
+      audioStatus.style.color= ok? '#bbf7d0':'#fecaca';
+      audioStatus.textContent = 'BGM: ' + txt;
+    }
+
+    function tryPlayBGM(vol=.5){
+      bgmEl.volume = vol; bgmEl.muted = false;
+      return bgmEl.play().then(()=>{ setAudioStatus('กำลังเล่น', true); ui.btnBGM.textContent='🔇 ปิดเพลง'; }).catch((err)=>{
+        setAudioStatus('ถูกบล็อก (แตะ/คลิกจอหรือกดปุ่ม เปิดเพลง)', false);
+        console.debug('BGM play blocked, will retry on next user gesture', err);
+      });
+    }
+    function unlockBGM(){ tryPlayBGM(.5); }
+    // play on user gestures (no once:true soจะพยายามซ้ำได้)
+    ['pointerdown','touchstart','click','keydown'].forEach(ev=>{
+      window.addEventListener(ev, unlockBGM, { passive:true });
+    });
+
+    // เพิ่มปุ่มลองเล่นอีกรอบ หากถูกบล็อก
+    const retryBtn = document.createElement('button');
+    retryBtn.textContent='🔊 เปิดเพลง';
+    retryBtn.style.cssText='margin-left:8px;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#e5e7eb;font-size:12px;cursor:pointer';
+    audioStatus.appendChild(retryBtn);
+    retryBtn
