@@ -2,7 +2,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Turn-Based Beta • PNG Sprites</title>
+  <title>Turn‑Based Beta • PNG Sprites + HP Gauge + Keyboard</title>
   <style>
     :root{
       --bg:#0f172a;--panel:#0b1220;--muted:#94a3b8;--text:#e5e7eb;--accent:#38bdf8;--danger:#f87171;--ok:#4ade80;--warn:#fbbf24
@@ -12,27 +12,32 @@
     .app{max-width:980px;margin:0 auto;display:grid;gap:16px}
     .topbar{display:flex;align-items:center;justify-content:space-between}
     h1{margin:0;font-size:22px}
-    .pill{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--muted);font-size:13px}.arena{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;min-height:260px;overflow:hidden}
+    .pill{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--muted);font-size:13px}.arena{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;min-height:300px;overflow:hidden}
 .ground{position:absolute;left:0;right:0;bottom:22px;height:6px;background:linear-gradient(90deg,rgba(56,189,248,.25),rgba(250,204,21,.25));filter:blur(1px)}
 
 .slot{position:absolute;bottom:28px;width:40%;display:flex;flex-direction:column;gap:8px}
 .slot.left{left:16px;align-items:flex-start}
 .slot.right{right:16px;align-items:flex-end}
-.spriteWrap{position:relative;display:inline-block;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
-.sprite{width:min(260px,34vw);height:auto;max-height:220px;object-fit:contain;image-rendering:auto}
-.right .sprite{transform:scaleX(-1)} /* พลิกมอนสเตอร์ให้หันเข้าหากัน ถ้าไม่ต้องการลบบรรทัดนี้ */
 
 .nameplate{display:flex;gap:8px;align-items:center}
-.hpbar{width:100%;height:12px;background:#1f2937;border-radius:10px;border:1px solid rgba(255,255,255,.08);overflow:hidden}
-.hpbar>div{height:100%;background:linear-gradient(90deg,var(--ok),var(--warn),var(--danger));transition:width .35s ease}
-.stats{display:flex;gap:10px;align-items:center}
+
+/* HP gauge with chip (damage delay) */
+.hpbar{position:relative;width:100%;height:14px;background:#1f2937;border-radius:10px;border:1px solid rgba(255,255,255,.08);overflow:hidden}
+.hpbar .chip{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(90deg,#94a3b8,#ef4444);opacity:.45;transition:width .7s ease}
+.hpbar .fill{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(90deg,var(--ok),var(--warn),var(--danger));transition:width .35s ease}
+.hpnum{font-size:13px;color:var(--muted)}
+
+.spriteWrap{position:relative;display:inline-block;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+.sprite{width:min(260px,34vw);height:auto;max-height:220px;object-fit:contain;image-rendering:auto}
+.right .sprite{transform:scaleX(-1)}
 
 .panel{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px}
 
 .btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-button{padding:10px 12px;border-radius:12px;background:#0f172a;color:var(--text);border:1px solid rgba(255,255,255,.12);cursor:pointer}
+button{padding:10px 12px;border-radius:12px;background:#0f172a;color:var(--text);border:1px solid rgba(255,255,255,.12);cursor:pointer;transition:border-color .2s ease, box-shadow .2s ease}
 button:hover{border-color:var(--accent)}
 button:disabled{opacity:.5;cursor:not-allowed}
+.focused{outline:none;box-shadow:0 0 0 3px rgba(56,189,248,.45)}
 
 .log{max-height:220px;overflow:auto;font-size:14px}
 .log p{margin:6px 0}
@@ -43,6 +48,18 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .shake{animation:hit .35s ease}
 .guard{box-shadow:0 0 0 0 rgba(59,130,246,.6);animation:pulse .6s ease}
 @keyframes pulse{to{box-shadow:0 0 16px 6px rgba(59,130,246,.35)}}
+
+/* Floating damage number */
+.floatNum{position:absolute;left:50%;transform:translateX(-50%);top:-8px;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.dmg{color:#fecaca}
+.heal{color:#bbf7d0}
+@keyframes floatUp{0%{opacity:0;transform:translate(-50%,8px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-24px)}}
+.floatAnim{animation:floatUp .7s ease forwards}
+
+/* Help overlay */
+.help{position:fixed;inset:auto 16px 16px auto;max-width:320px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(15,23,42,.85);backdrop-filter:blur(6px);font-size:13px;color:#d1d5db}
+.help kbd{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:1px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06)}
+.help.hidden{display:none}
 
 @media (max-width:760px){
   .slot{width:48%}
@@ -62,20 +79,24 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
   <!-- Player (LEFT) -->
   <div class="slot left" id="playerSlot">
-    <div class="nameplate"><strong id="pName">Player</strong><span id="pHPText">100 / 100 HP</span></div>
-    <div class="hpbar" aria-label="Player HP"><div id="pHPBar" style="width:100%"></div></div>
+    <div class="nameplate"><strong id="pName">Player</strong><span class="hpnum" id="pHPText">100 / 100 HP</span></div>
+    <div class="hpbar" aria-label="Player HP">
+      <div id="pHPChip" class="chip" style="width:100%"></div>
+      <div id="pHPBar" class="fill" style="width:100%"></div>
+    </div>
     <div class="spriteWrap" id="pSpriteWrap">
-      <!-- เปลี่ยน src เป็นไฟล์ของคุณ เช่น ./assets/Player.png -->
       <img id="playerImg" class="sprite" src="Player.png" alt="Player" />
     </div>
   </div>
 
   <!-- Monster (RIGHT) -->
   <div class="slot right" id="enemySlot">
-    <div class="nameplate" style="justify-content:flex-end"><span id="eHPText">100 / 100 HP</span><strong id="eName">Monster</strong></div>
-    <div class="hpbar" aria-label="Enemy HP"><div id="eHPBar" style="width:100%"></div></div>
+    <div class="nameplate" style="justify-content:flex-end"><span class="hpnum" id="eHPText">100 / 100 HP</span><strong id="eName">Monster</strong></div>
+    <div class="hpbar" aria-label="Enemy HP">
+      <div id="eHPChip" class="chip" style="width:100%"></div>
+      <div id="eHPBar" class="fill" style="width:100%"></div>
+    </div>
     <div class="spriteWrap" id="eSpriteWrap">
-      <!-- เปลี่ยน src เป็นไฟล์ของคุณ เช่น ./assets/Monster.png -->
       <img id="enemyImg" class="sprite" src="Monster.png" alt="Monster" />
     </div>
   </div>
@@ -84,14 +105,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <!-- Controls & Log -->
 <section class="panel">
   <div class="btns">
-    <button id="btnAttack">โจมตี</button>
-    <button id="btnDefend">ป้องกัน</button>
-    <button id="btnSkill">สกิล: ไฟร์บอล (CD 2)</button>
+    <button id="btnAttack">โจมตี <span style="opacity:.6">(A / ←→ + Enter)</span></button>
+    <button id="btnDefend">ป้องกัน <span style="opacity:.6">(D)</span></button>
+    <button id="btnSkill">สกิล: ไฟร์บอล <span style="opacity:.6">(S)</span></button>
   </div>
   <div class="log" id="log" role="log" aria-live="polite"></div>
-  <div class="footer"><button id="btnNew">เริ่มเกมใหม่</button></div>
+  <div class="footer"><button id="btnNew">เริ่มเกมใหม่ (R)</button></div>
 </section>
 
+  </div>  <!-- Help overlay -->  <div id="help" class="help">
+    <b>ปุ่มคีย์บอร์ด</b><br/>
+    <kbd>A</kbd> โจมตี • <kbd>D</kbd> ป้องกัน • <kbd>S</kbd> สกิล<br/>
+    <kbd>←</kbd>/<kbd>→</kbd> เลือกปุ่ม • <kbd>Enter</kbd>/<kbd>Space</kbd> ยืนยัน<br/>
+    <kbd>R</kbd> เริ่มใหม่ • <kbd>H</kbd> ซ่อน/แสดงคู่มือ
   </div>  <script>
     const $ = (s)=>document.querySelector(s);
     const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
@@ -103,10 +129,112 @@ button:disabled{opacity:.5;cursor:not-allowed}
       state:'player-turn', turn:1,
       player:{name:'Player', maxHP:100, hp:100, atk:[8,14], defend:0, cd:0},
       enemy:{name:'Monster', maxHP:100, hp:100, atk:[6,12], defend:0},
+      focus:0 // 0..2 index ของปุ่ม
     };
 
     const ui={
-      tag:$('#turnTag'),
+      tag:$('#turnTag'), help:$('#help'),
+      pName:$('#pName'), eName:$('#eName'),
+      pHPText:$('#pHPText'), eHPText:$('#eHPText'),
+      pBar:$('#pHPBar'), eBar:$('#eHPBar'),
+      pChip:$('#pHPChip'), eChip:$('#eHPChip'),
+      pWrap:$('#pSpriteWrap'), eWrap:$('#eSpriteWrap'),
+      btnA:$('#btnAttack'), btnD:$('#btnDefend'), btnS:$('#btnSkill'), btnN:$('#btnNew'),
+      btnList:null
+    };
+    ui.btnList=[ui.btnA, ui.btnD, ui.btnS];
+
+    function setHP(elFill, elChip, ratio){
+      const pct = `${ratio*100}%`;
+      elFill.style.width = pct;
+      // chip ตามทีหลังเพื่อให้เห็นการหายของเลือด
+      requestAnimationFrame(()=>{
+        setTimeout(()=>{ elChip.style.width=pct; }, 250);
+      });
+    }
+
+    function updateUI(){
+      ui.pName.textContent=game.player.name; ui.eName.textContent=game.enemy.name;
+      ui.pHPText.textContent=`${game.player.hp} / ${game.player.maxHP} HP`;
+      ui.eHPText.textContent=`${game.enemy.hp} / ${game.enemy.maxHP} HP`;
+      setHP(ui.pBar, ui.pChip, game.player.hp/game.player.maxHP);
+      setHP(ui.eBar, ui.eChip, game.enemy.hp/game.enemy.maxHP);
+
+      const playerTurn = game.state==='player-turn';
+      ui.btnA.disabled=ui.btnD.disabled=ui.btnS.disabled=!playerTurn;
+      ui.btnS.disabled = ui.btnS.disabled || game.player.cd>0;
+
+      ui.tag.textContent = playerTurn ? `เทิร์นที่ ${game.turn} • ตาของผู้เล่น` :
+                            game.state==='enemy-turn' ? `เทิร์นที่ ${game.turn} • ตาของศัตรู` :
+                            game.state==='win' ? '🎉 ชนะแล้ว!' :
+                            game.state==='lose'? '💀 แพ้แล้ว!' : 'พร้อมเริ่ม';
+      ui.btnS.textContent = game.player.cd>0?`สกิล: ไฟร์บอล (CD ${game.player.cd})`:'สกิล: ไฟร์บอล';
+
+      // โฟกัสปุ่มด้วยคีย์บอร์ด
+      ui.btnList.forEach((b,i)=>{ b.classList.toggle('focused', playerTurn && game.focus===i); });
+    }
+
+    function floatNumber(container, value, isHeal=false){
+      const n = document.createElement('div');
+      n.className = `floatNum ${isHeal?'heal':'dmg'} floatAnim`;
+      n.textContent = (isHeal?'+':'-') + value;
+      container.appendChild(n);
+      setTimeout(()=>n.remove(), 750);
+    }
+
+    function applyDamage(target, dmg, wrap){
+      if(target.defend>0){ const reduced=Math.ceil(dmg*(1-target.defend)); log(`${target.name} ลดดาเมจเหลือ <b>${reduced}</b>`); dmg=reduced; target.defend=0; wrap.classList.add('guard'); setTimeout(()=>wrap.classList.remove('guard'),300); }
+      target.hp=clamp(target.hp-dmg,0,target.maxHP);
+      wrap.classList.add('shake'); setTimeout(()=>wrap.classList.remove('shake'),350);
+      floatNumber(wrap, dmg, false);
+      return dmg;
+    }
+
+    function checkEnd(){
+      if(game.enemy.hp<=0 && game.player.hp<=0){ game.state='lose'; log('<b>ทั้งคู่ล้มพร้อมกัน… เกมโอเวอร์</b>'); updateUI(); return true; }
+      if(game.enemy.hp<=0){ game.state='win'; log(`<b>${game.enemy.name} พ่ายแพ้! คุณชนะ!</b>`); updateUI(); return true; }
+      if(game.player.hp<=0){ game.state='lose'; log(`<b>${game.player.name} ล้มลง… แพ้!</b>`); updateUI(); return true; }
+      return false;
+    }
+
+    function endPlayerTurn(){ if(game.player.cd>0) game.player.cd-=1; game.state='enemy-turn'; updateUI(); setTimeout(enemyAI,650); }
+    function nextRound(){ game.turn+=1; game.state='player-turn'; updateUI(); }
+
+    // Buttons
+    ui.btnA.addEventListener('click',()=>{ if(game.state!=='player-turn')return; const dmg=rand(...game.player.atk); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`${game.player.name} โจมตี สร้างความเสียหาย <b>${real}</b>`); updateUI(); if(!checkEnd()) endPlayerTurn(); });
+    ui.btnD.addEventListener('click',()=>{ if(game.state!=='player-turn')return; game.player.defend=0.5; log(`${game.player.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.pWrap.classList.add('guard'); setTimeout(()=>ui.pWrap.classList.remove('guard'),300); updateUI(); endPlayerTurn(); });
+    ui.btnS.addEventListener('click',()=>{ if(game.state!=='player-turn'||game.player.cd>0)return; const dmg=rand(16,24); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`🔥 ${game.player.name} ใช้ <b>ไฟร์บอล</b> สร้างความเสียหาย <b>${real}</b>`); game.player.cd=2; updateUI(); if(!checkEnd()) endPlayerTurn(); });
+    ui.btnN.addEventListener('click',()=>reset());
+
+    function enemyAI(){ if(game.state!=='enemy-turn')return; const r=Math.random(); if(r<0.7){ const dmg=rand(...game.enemy.atk); const real=applyDamage(game.player,dmg,ui.pWrap); log(`${game.enemy.name} โจมตีใส่คุณ เสียหาย <b>${real}</b>`); } else { game.enemy.defend=0.5; log(`${game.enemy.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.eWrap.classList.add('guard'); setTimeout(()=>ui.eWrap.classList.remove('guard'),300); }
+      updateUI(); if(!checkEnd()) nextRound(); }
+
+    function reset(){ game.state='player-turn'; game.turn=1; game.player.hp=game.player.maxHP; game.enemy.hp=game.enemy.maxHP; game.player.defend=0; game.enemy.defend=0; game.player.cd=0; logEl.innerHTML=''; log(`<span style="font-size:12px;color:#bae6fd">เริ่มเกมใหม่</span> ${game.player.name} ปะทะ ${game.enemy.name}`); updateUI(); }
+
+    // Keyboard controls
+    window.addEventListener('keydown',(e)=>{
+      const k=e.key;
+      if(k==='h' || k==='H'){ ui.help.classList.toggle('hidden'); return; }
+      if(k==='r' || k==='R'){ reset(); return; }
+
+      if(game.state!=='player-turn') return;
+
+      // direct hotkeys
+      if(k==='a' || k==='A'){ ui.btnA.click(); return; }
+      if(k==='d' || k==='D'){ ui.btnD.click(); return; }
+      if(k==='s' || k==='S'){ ui.btnS.click(); return; }
+
+      // navigation
+      if(k==='ArrowLeft' || k==='ArrowUp'){ game.focus = (game.focus+2)%3; updateUI(); return; }
+      if(k==='ArrowRight' || k==='ArrowDown'){ game.focus = (game.focus+1)%3; updateUI(); return; }
+      if(k==='Enter' || k===' '){ ui.btnList[game.focus].click(); return; }
+    });
+
+    // Boot
+    log(`<span style="font-size:12px;color:#bae6fd">พร้อม</span> ตั้งค่า Sprite แล้วคลิกปุ่มหรือกดคีย์บอร์ดเพื่อเริ่มต่อสู้`);
+    updateUI();
+  </script></body>
+</html>      tag:$('#turnTag'),
       pName:$('#pName'), eName:$('#eName'),
       pHPText:$('#pHPText'), eHPText:$('#eHPText'),
       pBar:$('#pHPBar'), eBar:$('#eHPBar'),
