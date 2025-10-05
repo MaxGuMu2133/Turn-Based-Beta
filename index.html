@@ -323,12 +323,35 @@ button:disabled{opacity:.5;cursor:not-allowed}
     });
 
     // BGM toggle
-    ui.btnBGM.addEventListener('click',()=>{ const bgm=document.getElementById('bgm'); if(bgm.paused){ bgm.play(); ui.btnBGM.textContent='🔇 ปิดเพลง'; } else { bgm.pause(); ui.btnBGM.textContent='🔊 เปิดเพลง'; }});
+    ui.btnBGM.addEventListener('click',()=>{ const bgm=document.getElementById('bgm'); if(bgm.paused){ bgm.play().catch(()=>{}); ui.btnBGM.textContent='🔇 ปิดเพลง'; } else { bgm.pause(); ui.btnBGM.textContent='🔊 เปิดเพลง'; }});
+
+    // --- Robust BGM unlock (fix for autoplay policies) ---
+    const bgmEl = document.getElementById('bgm');
+    function tryPlayBGM(vol=.5){
+      bgmEl.volume = vol; bgmEl.muted = false;
+      return bgmEl.play().then(()=>{ ui.btnBGM.textContent='🔇 ปิดเพลง'; }).catch((err)=>{
+        // no-op: will retry on next gesture
+        console.debug('BGM play blocked, will retry on next user gesture', err);
+      });
+    }
+    function unlockBGM(){ tryPlayBGM(.5); }
+    // play on first user gesture (mobile/desktop)
+    ['pointerdown','touchstart','keydown','click'].forEach(ev=>{
+      window.addEventListener(ev, unlockBGM, { once:true, passive:true });
+    });
+
+    // also attempt when starting game
+    function ensureBGM(){ if(bgmEl.paused) tryPlayBGM(.5); }
+
+    // basic debug: log loading/err states
+    bgmEl.addEventListener('canplay', ()=>console.debug('BGM canplay')); 
+    bgmEl.addEventListener('play', ()=>console.debug('BGM playing'));
+    bgmEl.addEventListener('pause', ()=>console.debug('BGM paused'));
+    bgmEl.addEventListener('error', (e)=>console.error('BGM error', bgmEl.error));
 
     // Boot: start in story mode with intro
     showStory(); story.i=0; playNode(story.nodes[story.i]); reset(true);
+    ensureBGM();
     updateUI();
-  </script>
-<audio id="bgm" src="bgm.mp3" loop preload="auto"></audio>
-</body>
+  </script></body>
 </html>
