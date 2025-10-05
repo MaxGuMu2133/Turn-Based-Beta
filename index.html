@@ -73,7 +73,29 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <div class="topbar">
       <h1>Turn‑Based Beta (PNG)</h1>
       <span id="turnTag" class="pill">กำลังโหลด…</span>
-    </div><!-- Battle Arena with PNG sprites -->
+    </div><!-- STORY LAYER -->
+<section id="storyLayer" class="panel" style="position:relative; overflow:hidden;">
+  <div id="storyBox" style="display:none; position:relative; border-radius:16px; padding:16px; background:rgba(15,23,42,.85); border:1px solid rgba(255,255,255,.12);">
+    <div style="display:flex; gap:12px; align-items:flex-start;">
+      <img id="storyPortrait" src="Player.png" alt="portrait" style="width:72px; height:72px; object-fit:contain; image-rendering:auto; border-radius:12px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1)" />
+      <div style="flex:1; min-height:72px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <strong id="storySpeaker">Player</strong>
+          <div style="display:flex; gap:8px; opacity:.9;">
+            <button id="storySkip" class="pill" title="ข้ามเนื้อเรื่อง">ข้าม</button>
+          </div>
+        </div>
+        <div id="storyText" style="min-height:48px; line-height:1.6"></div>
+        <div id="storyChoices" style="display:none; margin-top:10px; gap:8px; flex-wrap:wrap"></div>
+        <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+          <button id="storyNext" class="pill">ถัดไป (Space/N)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Battle Arena with PNG sprites -->
 <section class="arena" aria-label="สนามต่อสู้">
   <div class="ground"></div>
 
@@ -110,15 +132,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <button id="btnSkill">สกิล: ไฟร์บอล <span style="opacity:.6">(S)</span></button>
   </div>
   <div class="log" id="log" role="log" aria-live="polite"></div>
-  <div class="footer"><button id="btnNew">เริ่มเกมใหม่ (R)</button></div>
+  <div class="footer">
+    <button id="btnNew">เริ่มเกมใหม่ (R)</button>
+    <button id="btnBGM">🔇 ปิดเพลง</button>
+  </div>
 </section>
 
-  </div>  <!-- Help overlay -->  <div id="help" class="help">
-    <b>ปุ่มคีย์บอร์ด</b><br/>
-    <kbd>A</kbd> โจมตี • <kbd>D</kbd> ป้องกัน • <kbd>S</kbd> สกิล<br/>
-    <kbd>←</kbd>/<kbd>→</kbd> เลือกปุ่ม • <kbd>Enter</kbd>/<kbd>Space</kbd> ยืนยัน<br/>
-    <kbd>R</kbd> เริ่มใหม่ • <kbd>H</kbd> ซ่อน/แสดงคู่มือ
-  </div>  <script>
+  </div>  <!-- BGM (background music) --><audio id="bgm" src="bgm.mp3" loop preload="auto"></audio>
+
+  <script>
     // --- Utilities ---
     const $ = (s)=>document.querySelector(s);
     const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
@@ -126,12 +148,68 @@ button:disabled{opacity:.5;cursor:not-allowed}
     const logEl = $('#log');
     function log(msg){ const p=document.createElement('p'); p.innerHTML=msg; logEl.appendChild(p); logEl.scrollTop=logEl.scrollHeight; }
 
+    // --- Story System ---
+    const storyUI = {
+      layer: $('#storyLayer'), box: $('#storyBox'), text: $('#storyText'), next: $('#storyNext'), skip: $('#storySkip'), speaker: $('#storySpeaker'), portrait: $('#storyPortrait'), choices: $('#storyChoices')
+    };
+
+    const story = {
+      mode: 'story', // 'story' | 'battle'
+      i: 0,
+      // โครงเรื่องตัวอย่าง + ฮุคเข้าบอสเทิร์นเบส
+      nodes: [
+        { speaker:'Player', portrait:'Player.png', text:'ที่นี่ที่ไหนกันนะ… ฉันต้องหาทางออกจากดันเจี้ยนนี้ให้ได้' },
+        { speaker:'Monster', portrait:'Monster.png', text:'กร่อร์… ผู้บุกรุก… จะไม่ผ่านที่นี่!' },
+        { speaker:'Player', portrait:'Player.png', text:'งั้นก็คงต้องสู้สินะ…' },
+        { cmd:'battle' },
+        // หลังชนะ
+        { tag:'postwin', speaker:'Player', portrait:'Player.png', text:'จัดการได้แล้ว! ข้างหน้าคงมีทางออก—ไปกันต่อ!' },
+      ],
+      typing:null,
+      speed: 18,
+    };
+
+    function showStory(){ storyUI.box.style.display='block'; story.mode='story'; updateUI(); }
+    function hideStory(){ storyUI.box.style.display='none'; }
+
+    function typeText(el, text, cb){
+      clearInterval(story.typing); el.textContent=''; let idx=0; story.typing = setInterval(()=>{
+        el.textContent = text.slice(0, ++idx);
+        if(idx>=text.length){ clearInterval(story.typing); if(cb) cb(); }
+      }, Math.max(8, 1000/story.speed));
+    }
+
+    function playNode(n){
+      if(!n) return;
+      if(n.cmd==='battle') { hideStory(); startBattle(); return; }
+      storyUI.speaker.textContent = n.speaker||'';
+      if(n.portrait) storyUI.portrait.src = n.portrait;
+      storyUI.choices.style.display='none'; storyUI.choices.innerHTML='';
+      storyUI.next.style.display='';
+      typeText(storyUI.text, n.text||'', null);
+    }
+
+    function nextNode(){
+      story.i++;
+      playNode(story.nodes[story.i]);
+    }
+
+    storyUI.next.addEventListener('click', ()=>{
+      // ถ้ากำลังพิมพ์อยู่ ให้พิมพ์จบทันที
+      if(story.typing){ clearInterval(story.typing); story.typing=null; storyUI.text.textContent = (story.nodes[story.i]?.text)||''; return; }
+      nextNode();
+    });
+    storyUI.skip.addEventListener('click', ()=>{ // ข้ามไปสู้เลย
+      const idx = story.nodes.findIndex(n=>n.cmd==='battle');
+      story.i = (idx>=0? idx : story.nodes.length-1); playNode(story.nodes[story.i]);
+    });
+
     // --- Game State ---
     const game={
-      state:'player-turn', turn:1,
+      state:'story', turn:1,
       player:{name:'Player', maxHP:100, hp:100, atk:[8,14], defend:0, cd:0},
       enemy:{name:'Monster', maxHP:100, hp:100, atk:[6,12], defend:0},
-      focus:0 // 0..2 index ของปุ่ม
+      focus:0
     };
 
     // --- UI refs ---
@@ -142,7 +220,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
       pBar:$('#pHPBar'), eBar:$('#eHPBar'),
       pChip:$('#pHPChip'), eChip:$('#eHPChip'),
       pWrap:$('#pSpriteWrap'), eWrap:$('#eSpriteWrap'),
-      btnA:$('#btnAttack'), btnD:$('#btnDefend'), btnS:$('#btnSkill'), btnN:$('#btnNew')
+      btnA:$('#btnAttack'), btnD:$('#btnDefend'), btnS:$('#btnSkill'), btnN:$('#btnNew'),
+      btnBGM:$('#btnBGM')
     };
     const btnList=[ui.btnA, ui.btnD, ui.btnS];
 
@@ -150,7 +229,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
       const r = clamp(isFinite(ratio)?ratio:1, 0, 1);
       const pct = `${r*100}%`;
       elFill.style.width = pct;
-      // chip ตามทีหลังเพื่อให้เห็นการหายของเลือด
       requestAnimationFrame(()=>{ setTimeout(()=>{ elChip.style.width=pct; }, 250); });
     }
 
@@ -165,13 +243,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
       ui.btnA.disabled=ui.btnD.disabled=ui.btnS.disabled=!playerTurn;
       if(playerTurn && game.player.cd>0) ui.btnS.disabled = true;
 
-      ui.tag.textContent = playerTurn ? `เทิร์นที่ ${game.turn} • ตาของผู้เล่น` :
-                            game.state==='enemy-turn' ? `เทิร์นที่ ${game.turn} • ตาของศัตรู` :
-                            game.state==='win' ? '🎉 ชนะแล้ว!' :
-                            game.state==='lose'? '💀 แพ้แล้ว!' : 'พร้อมเริ่ม';
-      ui.btnS.textContent = game.player.cd>0?`สกิล: ไฟร์บอล (CD ${game.player.cd})`:'สกิล: ไฟร์บอล';
+      ui.tag.textContent = game.state==='story' ? 'โหมดเนื้อเรื่อง' :
+                           playerTurn ? `เทิร์นที่ ${game.turn} • ตาของผู้เล่น` :
+                           game.state==='enemy-turn' ? `เทิร์นที่ ${game.turn} • ตาของศัตรู` :
+                           game.state==='win' ? '🎉 ชนะแล้ว!' :
+                           game.state==='lose'? '💀 แพ้แล้ว!' : 'พร้อมเริ่ม';
 
-      // โฟกัสปุ่มด้วยคีย์บอร์ด
       btnList.forEach((b,i)=>{ b.classList.toggle('focused', playerTurn && game.focus===i); });
     }
 
@@ -184,7 +261,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     }
 
     function applyDamage(target, dmg, wrap){
-      let out = dmg|0; // guard int
+      let out = dmg|0;
       if(target.defend>0){ const reduced=Math.ceil(out*(1-target.defend)); log(`${target.name} ลดดาเมจเหลือ <b>${reduced}</b>`); out=reduced; target.defend=0; wrap.classList.add('guard'); setTimeout(()=>wrap.classList.remove('guard'),300); }
       target.hp=clamp(target.hp-out,0,target.maxHP);
       wrap.classList.add('shake'); setTimeout(()=>wrap.classList.remove('shake'),350);
@@ -194,7 +271,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
     function checkEnd(){
       if(game.enemy.hp<=0 && game.player.hp<=0){ game.state='lose'; log('<b>ทั้งคู่ล้มพร้อมกัน… เกมโอเวอร์</b>'); updateUI(); return true; }
-      if(game.enemy.hp<=0){ game.state='win'; log(`<b>${game.enemy.name} พ่ายแพ้! คุณชนะ!</b>`); updateUI(); return true; }
+      if(game.enemy.hp<=0){ game.state='win'; log(`<b>${game.enemy.name} พ่ายแพ้! คุณชนะ!</b>`); updateUI(); setTimeout(()=>{ openPostWinStory(); }, 600); return true; }
       if(game.player.hp<=0){ game.state='lose'; log(`<b>${game.player.name} ล้มลง… แพ้!</b>`); updateUI(); return true; }
       return false;
     }
@@ -206,38 +283,50 @@ button:disabled{opacity:.5;cursor:not-allowed}
     ui.btnA.addEventListener('click',()=>{ if(game.state!=='player-turn')return; const dmg=rand(...game.player.atk); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`${game.player.name} โจมตี สร้างความเสียหาย <b>${real}</b>`); updateUI(); if(!checkEnd()) endPlayerTurn(); });
     ui.btnD.addEventListener('click',()=>{ if(game.state!=='player-turn')return; game.player.defend=0.5; log(`${game.player.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.pWrap.classList.add('guard'); setTimeout(()=>ui.pWrap.classList.remove('guard'),300); updateUI(); endPlayerTurn(); });
     ui.btnS.addEventListener('click',()=>{ if(game.state!=='player-turn'||game.player.cd>0)return; const dmg=rand(16,24); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`🔥 ${game.player.name} ใช้ <b>ไฟร์บอล</b> สร้างความเสียหาย <b>${real}</b>`); game.player.cd=2; updateUI(); if(!checkEnd()) endPlayerTurn(); });
-    ui.btnN.addEventListener('click',()=>reset());
+    ui.btnN.addEventListener('click',()=>reset(true));
 
     function enemyAI(){ if(game.state!=='enemy-turn')return; const r=Math.random(); if(r<0.7){ const dmg=rand(...game.enemy.atk); const real=applyDamage(game.player,dmg,ui.pWrap); log(`${game.enemy.name} โจมตีใส่คุณ เสียหาย <b>${real}</b>`); } else { game.enemy.defend=0.5; log(`${game.enemy.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.eWrap.classList.add('guard'); setTimeout(()=>ui.eWrap.classList.remove('guard'),300); }
       updateUI(); if(!checkEnd()) nextRound(); }
 
-    function reset(){ game.state='player-turn'; game.turn=1; game.player.hp=game.player.maxHP; game.enemy.hp=game.enemy.maxHP; game.player.defend=0; game.enemy.defend=0; game.player.cd=0; logEl.innerHTML=''; log(`<span style=\"font-size:12px;color:#bae6fd\">เริ่มเกมใหม่</span> ${game.player.name} ปะทะ ${game.enemy.name}`); updateUI(); }
-
-    // Normalize key across browsers
-    function isKey(e, keys){
-      const k=e.key; return keys.includes(k) || keys.includes(k.toLowerCase()) || keys.includes(k.toUpperCase());
+    function reset(playBGM=false){
+      game.state = (story.mode==='story'? 'story':'player-turn');
+      game.turn=1; game.player.hp=game.player.maxHP; game.enemy.hp=game.enemy.maxHP; game.player.defend=0; game.enemy.defend=0; game.player.cd=0;
+      logEl.innerHTML='';
+      if(game.state==='player-turn') log(`<span style=\"font-size:12px;color:#bae6fd\">เริ่มเกมใหม่</span> ${game.player.name} ปะทะ ${game.enemy.name}`);
+      updateUI();
+      const bgm = document.getElementById('bgm');
+      if(playBGM && bgm.paused){ bgm.volume=.5; bgm.play().catch(()=>{}); }
     }
 
-    // Keyboard controls (with preventDefault for arrows/space)
+    function startBattle(){ game.state='player-turn'; updateUI(); log(`<span style=\"font-size:12px;color:#bae6fd\">เริ่มการต่อสู้</span> ${game.player.name} ปะทะ ${game.enemy.name}`); }
+
+    function openPostWinStory(){ story.mode='story'; story.i = story.nodes.findIndex(n=>n.tag==='postwin'); showStory(); playNode(story.nodes[story.i]); }
+
+    // Keyboard controls
+    function isKey(e, keys){ const k=e.key; return keys.includes(k) || keys.includes(k.toLowerCase()) || keys.includes(k.toUpperCase()); }
     window.addEventListener('keydown',(e)=>{
-      if(isKey(e,['h','H'])){ ui.help.classList.toggle('hidden'); e.preventDefault(); return; }
+      // Story controls
+      if(game.state==='story'){
+        if(isKey(e,['n','N','Enter',' ','Space'])){ storyUI.next.click(); e.preventDefault(); return; }
+        if(isKey(e,['Escape'])){ storyUI.skip.click(); e.preventDefault(); return; }
+        return;
+      }
+
       if(isKey(e,['r','R'])){ reset(); e.preventDefault(); return; }
-
       const actionable = game.state==='player-turn';
-
-      // direct hotkeys
       if(actionable && isKey(e,['a','A'])){ ui.btnA.click(); e.preventDefault(); return; }
       if(actionable && isKey(e,['d','D'])){ ui.btnD.click(); e.preventDefault(); return; }
       if(actionable && isKey(e,['s','S'])){ ui.btnS.click(); e.preventDefault(); return; }
-
-      // navigation
       if(actionable && (isKey(e,['ArrowLeft','ArrowUp']))){ game.focus = (game.focus+2)%3; updateUI(); e.preventDefault(); return; }
       if(actionable && (isKey(e,['ArrowRight','ArrowDown']))){ game.focus = (game.focus+1)%3; updateUI(); e.preventDefault(); return; }
       if(actionable && (isKey(e,['Enter',' ','Space']))){ const btn=btnList[game.focus]; if(btn && !btn.disabled) btn.click(); e.preventDefault(); return; }
     });
 
-    // Boot
-    log(`<span style=\"font-size:12px;color:#bae6fd\">พร้อม</span> ตั้งค่า Sprite แล้วคลิกปุ่มหรือกดคีย์บอร์ดเพื่อเริ่มต่อสู้`);
+    // BGM toggle
+    ui.btnBGM.addEventListener('click',()=>{ const bgm=document.getElementById('bgm'); if(bgm.paused){ bgm.play(); ui.btnBGM.textContent='🔇 ปิดเพลง'; } else { bgm.pause(); ui.btnBGM.textContent='🔊 เปิดเพลง'; }});
+
+    // Boot: start in story mode with intro
+    showStory(); story.i=0; playNode(story.nodes[story.i]); reset(true);
     updateUI();
   </script></body>
 </html>
