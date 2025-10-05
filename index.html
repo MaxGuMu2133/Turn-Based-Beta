@@ -160,4 +160,58 @@ button:disabled{opacity:.5;cursor:not-allowed}
     log(`<span style="font-size:12px;color:#bae6fd">พร้อม</span> ตั้งค่า Sprite แล้วคลิกปุ่มเพื่อเริ่มต่อสู้`);
     updateUI();
   </script></body>
+</html>      tag:$('#turnTag'),
+      pName:$('#pName'), eName:$('#eName'),
+      pHPText:$('#pHPText'), eHPText:$('#eHPText'),
+      pBar:$('#pHPBar'), eBar:$('#eHPBar'),
+      pWrap:$('#pSpriteWrap'), eWrap:$('#eSpriteWrap'),
+      btnA:$('#btnAttack'), btnD:$('#btnDefend'), btnS:$('#btnSkill'), btnN:$('#btnNew'),
+    };
+
+    function updateUI(){
+      ui.pName.textContent=game.player.name; ui.eName.textContent=game.enemy.name;
+      ui.pHPText.textContent=`${game.player.hp} / ${game.player.maxHP} HP`;
+      ui.eHPText.textContent=`${game.enemy.hp} / ${game.enemy.maxHP} HP`;
+      ui.pBar.style.width=`${(game.player.hp/game.player.maxHP)*100}%`;
+      ui.eBar.style.width=`${(game.enemy.hp/game.enemy.maxHP)*100}%`;
+      ui.btnA.disabled=ui.btnD.disabled=ui.btnS.disabled= game.state!=='player-turn';
+      ui.btnS.disabled = ui.btnS.disabled || game.player.cd>0;
+      ui.tag.textContent = game.state==='player-turn' ? `เทิร์นที่ ${game.turn} • ตาของผู้เล่น` :
+                            game.state==='enemy-turn' ? `เทิร์นที่ ${game.turn} • ตาของศัตรู` :
+                            game.state==='win' ? '🎉 ชนะแล้ว!' :
+                            game.state==='lose'? '💀 แพ้แล้ว!' : 'พร้อมเริ่ม';
+      ui.btnS.textContent = game.player.cd>0?`สกิล: ไฟร์บอล (CD ${game.player.cd})`:'สกิล: ไฟร์บอล';
+    }
+
+    function applyDamage(target, dmg, wrap){
+      if(target.defend>0){ const reduced=Math.ceil(dmg*(1-target.defend)); log(`${target.name} ลดดาเมจเหลือ <b>${reduced}</b>`); dmg=reduced; target.defend=0; wrap.classList.add('guard'); setTimeout(()=>wrap.classList.remove('guard'),300); }
+      target.hp=clamp(target.hp-dmg,0,target.maxHP); wrap.classList.add('shake'); setTimeout(()=>wrap.classList.remove('shake'),350); return dmg;
+    }
+
+    function checkEnd(){
+      if(game.enemy.hp<=0 && game.player.hp<=0){ game.state='lose'; log('<b>ทั้งคู่ล้มพร้อมกัน… เกมโอเวอร์</b>'); updateUI(); return true; }
+      if(game.enemy.hp<=0){ game.state='win'; log(`<b>${game.enemy.name} พ่ายแพ้! คุณชนะ!</b>`); updateUI(); return true; }
+      if(game.player.hp<=0){ game.state='lose'; log(`<b>${game.player.name} ล้มลง… แพ้!</b>`); updateUI(); return true; }
+      return false;
+    }
+
+    function endPlayerTurn(){ if(game.player.cd>0) game.player.cd-=1; game.state='enemy-turn'; updateUI(); setTimeout(enemyAI,650); }
+    function nextRound(){ game.turn+=1; game.state='player-turn'; updateUI(); }
+
+    // Buttons
+    ui.btnA.addEventListener('click',()=>{ if(game.state!=='player-turn')return; const dmg=rand(...game.player.atk); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`${game.player.name} โจมตี สร้างความเสียหาย <b>${real}</b>`); updateUI(); if(!checkEnd()) endPlayerTurn(); });
+    ui.btnD.addEventListener('click',()=>{ if(game.state!=='player-turn')return; game.player.defend=0.5; log(`${game.player.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.pWrap.classList.add('guard'); setTimeout(()=>ui.pWrap.classList.remove('guard'),300); updateUI(); endPlayerTurn(); });
+    ui.btnS.addEventListener('click',()=>{ if(game.state!=='player-turn'||game.player.cd>0)return; const dmg=rand(16,24); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`🔥 ${game.player.name} ใช้ <b>ไฟร์บอล</b> สร้างความเสียหาย <b>${real}</b>`); game.player.cd=2; updateUI(); if(!checkEnd()) endPlayerTurn(); });
+    ui.btnN.addEventListener('click',()=>{ game.state='player-turn'; game.turn=1; game.player.hp=game.player.maxHP; game.enemy.hp=game.enemy.maxHP; game.player.defend=0; game.enemy.defend=0; game.player.cd=0; logEl.innerHTML=''; log(`<span style="font-size:12px;color:#bae6fd">เริ่มเกมใหม่</span> ${game.player.name} ปะทะ ${game.enemy.name}`); updateUI();});
+
+    function enemyAI(){ if(game.state!=='enemy-turn')return; const r=Math.random(); if(r<0.7){ const dmg=rand(...game.enemy.atk); const real=applyDamage(game.player,dmg,ui.pWrap); log(`${game.enemy.name} โจมตีใส่คุณ เสียหาย <b>${real}</b>`); } else { game.enemy.defend=0.5; log(`${game.enemy.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.eWrap.classList.add('guard'); setTimeout(()=>ui.eWrap.classList.remove('guard'),300); }
+      updateUI(); if(!checkEnd()) nextRound(); }
+
+    // Hotkeys: A/D/S
+    window.addEventListener('keydown',(e)=>{ if(game.state!=='player-turn')return; const k=e.key.toLowerCase(); if(k==='a')ui.btnA.click(); if(k==='d')ui.btnD.click(); if(k==='s')ui.btnS.click(); });
+
+    // Boot
+    log(`<span style="font-size:12px;color:#bae6fd">พร้อม</span> ตั้งค่า Sprite แล้วคลิกปุ่มเพื่อเริ่มต่อสู้`);
+    updateUI();
+  </script></body>
   </html>
