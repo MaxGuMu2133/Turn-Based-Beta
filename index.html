@@ -1,0 +1,163 @@
+<!DOCTYPE html><html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Turn-Based Beta • PNG Sprites</title>
+  <style>
+    :root{
+      --bg:#0f172a;--panel:#0b1220;--muted:#94a3b8;--text:#e5e7eb;--accent:#38bdf8;--danger:#f87171;--ok:#4ade80;--warn:#fbbf24
+    }
+    *{box-sizing:border-box}
+    body{margin:0;padding:24px;background:radial-gradient(900px 600px at 20% 0%,#0b1220,var(--bg));color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Sarabun",sans-serif}
+    .app{max-width:980px;margin:0 auto;display:grid;gap:16px}
+    .topbar{display:flex;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:22px}
+    .pill{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--muted);font-size:13px}.arena{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;min-height:260px;overflow:hidden}
+.ground{position:absolute;left:0;right:0;bottom:22px;height:6px;background:linear-gradient(90deg,rgba(56,189,248,.25),rgba(250,204,21,.25));filter:blur(1px)}
+
+.slot{position:absolute;bottom:28px;width:40%;display:flex;flex-direction:column;gap:8px}
+.slot.left{left:16px;align-items:flex-start}
+.slot.right{right:16px;align-items:flex-end}
+.spriteWrap{position:relative;display:inline-block;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+.sprite{width:min(260px,34vw);height:auto;max-height:220px;object-fit:contain;image-rendering:auto}
+.right .sprite{transform:scaleX(-1)} /* พลิกมอนสเตอร์ให้หันเข้าหากัน ถ้าไม่ต้องการลบบรรทัดนี้ */
+
+.nameplate{display:flex;gap:8px;align-items:center}
+.hpbar{width:100%;height:12px;background:#1f2937;border-radius:10px;border:1px solid rgba(255,255,255,.08);overflow:hidden}
+.hpbar>div{height:100%;background:linear-gradient(90deg,var(--ok),var(--warn),var(--danger));transition:width .35s ease}
+.stats{display:flex;gap:10px;align-items:center}
+
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px}
+
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+button{padding:10px 12px;border-radius:12px;background:#0f172a;color:var(--text);border:1px solid rgba(255,255,255,.12);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+
+.log{max-height:220px;overflow:auto;font-size:14px}
+.log p{margin:6px 0}
+.footer{display:flex;justify-content:flex-end}
+
+/* Effects */
+@keyframes hit{10%{transform:translateX(-4px)} 20%{transform:translateX(4px)} 30%{transform:translateX(-3px)} 40%{transform:translateX(3px)} 50%{transform:translateX(-2px)} 60%{transform:translateX(2px)} 100%{transform:none}}
+.shake{animation:hit .35s ease}
+.guard{box-shadow:0 0 0 0 rgba(59,130,246,.6);animation:pulse .6s ease}
+@keyframes pulse{to{box-shadow:0 0 16px 6px rgba(59,130,246,.35)}}
+
+@media (max-width:760px){
+  .slot{width:48%}
+  .btns{grid-template-columns:1fr}
+}
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <h1>Turn‑Based Beta (PNG)</h1>
+      <span id="turnTag" class="pill">กำลังโหลด…</span>
+    </div><!-- Battle Arena with PNG sprites -->
+<section class="arena" aria-label="สนามต่อสู้">
+  <div class="ground"></div>
+
+  <!-- Player (LEFT) -->
+  <div class="slot left" id="playerSlot">
+    <div class="nameplate"><strong id="pName">Player</strong><span id="pHPText">100 / 100 HP</span></div>
+    <div class="hpbar" aria-label="Player HP"><div id="pHPBar" style="width:100%"></div></div>
+    <div class="spriteWrap" id="pSpriteWrap">
+      <!-- เปลี่ยน src เป็นไฟล์ของคุณ เช่น ./assets/Player.png -->
+      <img id="playerImg" class="sprite" src="Player.png" alt="Player" />
+    </div>
+  </div>
+
+  <!-- Monster (RIGHT) -->
+  <div class="slot right" id="enemySlot">
+    <div class="nameplate" style="justify-content:flex-end"><span id="eHPText">100 / 100 HP</span><strong id="eName">Monster</strong></div>
+    <div class="hpbar" aria-label="Enemy HP"><div id="eHPBar" style="width:100%"></div></div>
+    <div class="spriteWrap" id="eSpriteWrap">
+      <!-- เปลี่ยน src เป็นไฟล์ของคุณ เช่น ./assets/Monster.png -->
+      <img id="enemyImg" class="sprite" src="Monster.png" alt="Monster" />
+    </div>
+  </div>
+</section>
+
+<!-- Controls & Log -->
+<section class="panel">
+  <div class="btns">
+    <button id="btnAttack">โจมตี</button>
+    <button id="btnDefend">ป้องกัน</button>
+    <button id="btnSkill">สกิล: ไฟร์บอล (CD 2)</button>
+  </div>
+  <div class="log" id="log" role="log" aria-live="polite"></div>
+  <div class="footer"><button id="btnNew">เริ่มเกมใหม่</button></div>
+</section>
+
+  </div>  <script>
+    const $ = (s)=>document.querySelector(s);
+    const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    const logEl = $('#log');
+    function log(msg){ const p=document.createElement('p'); p.innerHTML=msg; logEl.appendChild(p); logEl.scrollTop=logEl.scrollHeight; }
+
+    const game={
+      state:'player-turn', turn:1,
+      player:{name:'Player', maxHP:100, hp:100, atk:[8,14], defend:0, cd:0},
+      enemy:{name:'Monster', maxHP:100, hp:100, atk:[6,12], defend:0},
+    };
+
+    const ui={
+      tag:$('#turnTag'),
+      pName:$('#pName'), eName:$('#eName'),
+      pHPText:$('#pHPText'), eHPText:$('#eHPText'),
+      pBar:$('#pHPBar'), eBar:$('#eHPBar'),
+      pWrap:$('#pSpriteWrap'), eWrap:$('#eSpriteWrap'),
+      btnA:$('#btnAttack'), btnD:$('#btnDefend'), btnS:$('#btnSkill'), btnN:$('#btnNew'),
+    };
+
+    function updateUI(){
+      ui.pName.textContent=game.player.name; ui.eName.textContent=game.enemy.name;
+      ui.pHPText.textContent=`${game.player.hp} / ${game.player.maxHP} HP`;
+      ui.eHPText.textContent=`${game.enemy.hp} / ${game.enemy.maxHP} HP`;
+      ui.pBar.style.width=`${(game.player.hp/game.player.maxHP)*100}%`;
+      ui.eBar.style.width=`${(game.enemy.hp/game.enemy.maxHP)*100}%`;
+      ui.btnA.disabled=ui.btnD.disabled=ui.btnS.disabled= game.state!=='player-turn';
+      ui.btnS.disabled = ui.btnS.disabled || game.player.cd>0;
+      ui.tag.textContent = game.state==='player-turn' ? `เทิร์นที่ ${game.turn} • ตาของผู้เล่น` :
+                            game.state==='enemy-turn' ? `เทิร์นที่ ${game.turn} • ตาของศัตรู` :
+                            game.state==='win' ? '🎉 ชนะแล้ว!' :
+                            game.state==='lose'? '💀 แพ้แล้ว!' : 'พร้อมเริ่ม';
+      ui.btnS.textContent = game.player.cd>0?`สกิล: ไฟร์บอล (CD ${game.player.cd})`:'สกิล: ไฟร์บอล';
+    }
+
+    function applyDamage(target, dmg, wrap){
+      if(target.defend>0){ const reduced=Math.ceil(dmg*(1-target.defend)); log(`${target.name} ลดดาเมจเหลือ <b>${reduced}</b>`); dmg=reduced; target.defend=0; wrap.classList.add('guard'); setTimeout(()=>wrap.classList.remove('guard'),300); }
+      target.hp=clamp(target.hp-dmg,0,target.maxHP); wrap.classList.add('shake'); setTimeout(()=>wrap.classList.remove('shake'),350); return dmg;
+    }
+
+    function checkEnd(){
+      if(game.enemy.hp<=0 && game.player.hp<=0){ game.state='lose'; log('<b>ทั้งคู่ล้มพร้อมกัน… เกมโอเวอร์</b>'); updateUI(); return true; }
+      if(game.enemy.hp<=0){ game.state='win'; log(`<b>${game.enemy.name} พ่ายแพ้! คุณชนะ!</b>`); updateUI(); return true; }
+      if(game.player.hp<=0){ game.state='lose'; log(`<b>${game.player.name} ล้มลง… แพ้!</b>`); updateUI(); return true; }
+      return false;
+    }
+
+    function endPlayerTurn(){ if(game.player.cd>0) game.player.cd-=1; game.state='enemy-turn'; updateUI(); setTimeout(enemyAI,650); }
+    function nextRound(){ game.turn+=1; game.state='player-turn'; updateUI(); }
+
+    // Buttons
+    ui.btnA.addEventListener('click',()=>{ if(game.state!=='player-turn')return; const dmg=rand(...game.player.atk); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`${game.player.name} โจมตี สร้างความเสียหาย <b>${real}</b>`); updateUI(); if(!checkEnd()) endPlayerTurn(); });
+    ui.btnD.addEventListener('click',()=>{ if(game.state!=='player-turn')return; game.player.defend=0.5; log(`${game.player.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.pWrap.classList.add('guard'); setTimeout(()=>ui.pWrap.classList.remove('guard'),300); updateUI(); endPlayerTurn(); });
+    ui.btnS.addEventListener('click',()=>{ if(game.state!=='player-turn'||game.player.cd>0)return; const dmg=rand(16,24); const real=applyDamage(game.enemy,dmg,ui.eWrap); log(`🔥 ${game.player.name} ใช้ <b>ไฟร์บอล</b> สร้างความเสียหาย <b>${real}</b>`); game.player.cd=2; updateUI(); if(!checkEnd()) endPlayerTurn(); });
+    ui.btnN.addEventListener('click',()=>{ game.state='player-turn'; game.turn=1; game.player.hp=game.player.maxHP; game.enemy.hp=game.enemy.maxHP; game.player.defend=0; game.enemy.defend=0; game.player.cd=0; logEl.innerHTML=''; log(`<span style="font-size:12px;color:#bae6fd">เริ่มเกมใหม่</span> ${game.player.name} ปะทะ ${game.enemy.name}`); updateUI();});
+
+    function enemyAI(){ if(game.state!=='enemy-turn')return; const r=Math.random(); if(r<0.7){ const dmg=rand(...game.enemy.atk); const real=applyDamage(game.player,dmg,ui.pWrap); log(`${game.enemy.name} โจมตีใส่คุณ เสียหาย <b>${real}</b>`); } else { game.enemy.defend=0.5; log(`${game.enemy.name} ตั้งท่าป้องกัน (ลดดาเมจ 50% ครั้งถัดไป)`); ui.eWrap.classList.add('guard'); setTimeout(()=>ui.eWrap.classList.remove('guard'),300); }
+      updateUI(); if(!checkEnd()) nextRound(); }
+
+    // Hotkeys: A/D/S
+    window.addEventListener('keydown',(e)=>{ if(game.state!=='player-turn')return; const k=e.key.toLowerCase(); if(k==='a')ui.btnA.click(); if(k==='d')ui.btnD.click(); if(k==='s')ui.btnS.click(); });
+
+    // Boot
+    log(`<span style="font-size:12px;color:#bae6fd">พร้อม</span> ตั้งค่า Sprite แล้วคลิกปุ่มเพื่อเริ่มต่อสู้`);
+    updateUI();
+  </script></body>
+  </html>
